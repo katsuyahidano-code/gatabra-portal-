@@ -1,0 +1,6 @@
+{
+  "name": "ガタブラポータル",
+  "description": "吹奏楽部の練習日程（日・週・月）、Googleフォーム出欠連動、トラック積み込みリスト、Gemini搭載の楽器・音楽用語AI相談、所持楽譜管理を一元化する部活動ポータル",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
