@@ -342,7 +342,7 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
                 <div
                   key={cell.dateStr}
                   onClick={() => onSelectDate(cell.dateStr)}
-                  className={`min-h-[94px] sm:min-h-[105px] p-2 transition-all flex flex-col justify-between group cursor-pointer relative ${
+                  className={`min-h-[88px] sm:min-h-[102px] p-1 sm:p-2 transition-all flex flex-col group cursor-pointer relative ${
                     !cell.isCurrentMonth
                       ? 'bg-stone-50/40 opacity-60 hover:opacity-100 hover:bg-stone-50'
                       : isToday
@@ -353,14 +353,14 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
                   }`}
                 >
                   {/* Top Bar: Date & Event badge (行事がある日だけ出力) & Today Badge */}
-                  <div className="flex items-center justify-between gap-1 min-w-0">
+                  <div className="flex items-center justify-between gap-1 min-w-0 h-5">
                     <div className="flex items-center gap-1 min-w-0 flex-1">
                       <span className={`font-mono text-xs sm:text-sm font-bold shrink-0 ${dayColor}`}>
                         {cell.dayNumber}
                       </span>
                       {sch?.event && sch.event.trim() !== '' && (
                         <span
-                          className="truncate text-[9px] sm:text-[10px] font-bold text-amber-900 bg-amber-100/90 px-1 py-0.2 rounded border border-amber-200/90 max-w-[65px] sm:max-w-[85px]"
+                          className="truncate text-[9px] sm:text-[10px] font-bold text-amber-900 bg-amber-100/90 px-1 py-0.2 rounded border border-amber-200/90 max-w-[55px] sm:max-w-[85px]"
                           title={sch.event}
                         >
                           {sch.event}
@@ -369,34 +369,34 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
                     </div>
 
                     {isToday && (
-                      <span className="px-1.5 py-0.2 text-[9px] font-extrabold bg-emerald-600 text-white rounded-full shadow-2xs shrink-0">
+                      <span className="px-1 py-0.2 text-[8px] sm:text-[9px] font-black bg-emerald-600 text-white rounded-full shadow-2xs shrink-0 whitespace-nowrap">
                         今日
                       </span>
                     )}
                   </div>
 
-                  {/* Middle: Practice Time (開始〜終了) OR 休み */}
-                  <div className="my-1">
+                  {/* Middle: Practice Time (開始〜終了) OR 休み - Pinned at uniform vertical position */}
+                  <div className="mt-1">
                     {hasTime && sch ? (
-                      <div className="flex items-center justify-center gap-1 px-1.5 py-0.5 rounded-lg bg-emerald-50 text-emerald-950 border border-emerald-200/80 font-mono text-[10px] sm:text-[11px] font-bold shadow-2xs">
-                        <Clock className="w-3 h-3 text-emerald-700 shrink-0" />
+                      <div className="flex items-center justify-center gap-0.5 px-1 py-0.5 rounded bg-emerald-50 text-emerald-950 border border-emerald-200/80 font-mono text-[9px] sm:text-[11px] font-bold shadow-2xs whitespace-nowrap overflow-hidden">
+                        <Clock className="w-2.5 h-2.5 text-emerald-700 shrink-0 hidden xs:inline-block" />
                         <span className="truncate">
                           {sch.startTime}〜{sch.endTime}
                         </span>
                       </div>
                     ) : (
-                      <div className="py-0.5 px-1.5 rounded-lg bg-stone-100 text-stone-500 text-[10px] sm:text-[11px] font-medium text-center border border-stone-200/70">
+                      <div className="py-0.5 px-1 rounded bg-stone-100 text-stone-500 text-[10px] sm:text-[11px] font-medium text-center border border-stone-200/70 whitespace-nowrap">
                         休み
                       </div>
                     )}
                   </div>
 
                   {/* Advisor Status: 松・飛の〇✕ */}
-                  {advisor && (
-                    <div className="flex items-center justify-center gap-1 text-[9px] sm:text-[10px] font-mono leading-none my-0.5">
+                  {advisor && (advisor.matsu || advisor.tobi) && (
+                    <div className="flex items-center justify-center gap-0.5 text-[8px] sm:text-[10px] font-mono leading-none mt-1">
                       {advisor.matsu && (
                         <span
-                          className={`px-1 py-0.2 rounded font-bold ${
+                          className={`px-0.5 py-0.2 rounded font-bold ${
                             advisor.matsu === '〇'
                               ? 'text-emerald-700 bg-emerald-50 border border-emerald-200/70'
                               : 'text-rose-700 bg-rose-50 border border-rose-200/70'
@@ -407,7 +407,7 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
                       )}
                       {advisor.tobi && (
                         <span
-                          className={`px-1 py-0.2 rounded font-bold ${
+                          className={`px-0.5 py-0.2 rounded font-bold ${
                             advisor.tobi === '〇'
                               ? 'text-emerald-700 bg-emerald-50 border border-emerald-200/70'
                               : 'text-rose-700 bg-rose-50 border border-rose-200/70'
@@ -419,39 +419,26 @@ export const MonthlyCalendarView: React.FC<MonthlyCalendarViewProps> = ({
                     </div>
                   )}
 
-                  {/* Bottom: Attendance Status */}
-                  <div className="pt-1 border-t border-stone-100/80 flex items-center justify-between text-[9px]">
-                    {cell.attendance.length > 0 ? (
-                      <div className="flex items-center gap-0.5 flex-wrap">
-                        {absent.length > 0 && (
-                          <span className="px-1 py-0.2 bg-rose-100 text-rose-700 font-bold rounded">
-                            欠{absent.length}
-                          </span>
-                        )}
-                        {late.length > 0 && (
-                          <span className="px-1 py-0.2 bg-amber-100 text-amber-800 font-bold rounded">
-                            遅{late.length}
-                          </span>
-                        )}
-                        {early.length > 0 && (
-                          <span className="px-1 py-0.2 bg-blue-100 text-blue-800 font-bold rounded">
-                            早{early.length}
-                          </span>
-                        )}
-                      </div>
-                    ) : hasTime ? (
-                      <span className="text-emerald-700 font-medium text-[9px]">
-                        全員出席
-                      </span>
-                    ) : (
-                      <span />
-                    )}
-
-                    <div className="text-emerald-800 opacity-0 group-hover:opacity-100 transition-opacity font-bold flex items-center gap-0.5 ml-auto text-[9px]">
-                      <span>詳細</span>
-                      <ArrowRight className="w-2.5 h-2.5" />
+                  {/* Bottom: Attendance Status - Horizontally aligned (欠1, 遅1) and hidden when all attending */}
+                  {(absent.length > 0 || late.length > 0 || early.length > 0) && (
+                    <div className="mt-auto pt-1 flex items-center justify-center gap-1 flex-wrap">
+                      {absent.length > 0 && (
+                        <span className="whitespace-nowrap px-1 py-0.2 bg-rose-100 text-rose-800 text-[9px] sm:text-[10px] font-bold rounded tracking-tight shrink-0 inline-flex items-center border border-rose-200">
+                          欠{absent.length}
+                        </span>
+                      )}
+                      {late.length > 0 && (
+                        <span className="whitespace-nowrap px-1 py-0.2 bg-amber-100 text-amber-900 text-[9px] sm:text-[10px] font-bold rounded tracking-tight shrink-0 inline-flex items-center border border-amber-200">
+                          遅{late.length}
+                        </span>
+                      )}
+                      {early.length > 0 && (
+                        <span className="whitespace-nowrap px-1 py-0.2 bg-sky-100 text-sky-800 text-[9px] sm:text-[10px] font-bold rounded tracking-tight shrink-0 inline-flex items-center border border-sky-200">
+                          早{early.length}
+                        </span>
+                      )}
                     </div>
-                  </div>
+                  )}
                 </div>
               );
             })}
