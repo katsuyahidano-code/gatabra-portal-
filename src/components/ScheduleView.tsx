@@ -263,41 +263,43 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
   return (
     <div className="space-y-6">
       {/* Action Header & Tabs */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 sm:p-4 rounded-2xl border border-stone-200 shadow-xs">
-        {/* 3 Subtabs */}
-        <div className="flex items-center gap-1.5 p-1 bg-stone-100/80 rounded-xl border border-stone-200/60 overflow-x-auto no-scrollbar max-w-full">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-2.5 sm:p-4 rounded-2xl border border-stone-200 shadow-xs">
+        {/* 3 Subtabs - Optimized to fit 100% on 390px mobile screens without clipping */}
+        <div className="grid grid-cols-3 gap-1 p-1 bg-stone-100/90 rounded-xl border border-stone-200/60 w-full sm:w-auto">
           <button
             onClick={() => setActiveSubTab('daily')}
-            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap shrink-0 ${
+            className={`flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap ${
               activeSubTab === 'daily'
                 ? 'bg-white text-emerald-950 shadow-xs border border-emerald-100'
                 : 'text-stone-600 hover:text-stone-900'
             }`}
           >
-            <ListTodo className="w-4 h-4 text-emerald-700" />
-            <span>その日の練習詳細</span>
+            <ListTodo className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-700 shrink-0" />
+            <span className="hidden sm:inline">その日の練習詳細</span>
+            <span className="sm:hidden text-[11px]">日別詳細</span>
           </button>
           <button
             onClick={() => setActiveSubTab('weekly')}
-            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap shrink-0 ${
+            className={`flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap ${
               activeSubTab === 'weekly'
                 ? 'bg-white text-emerald-950 shadow-xs border border-emerald-100'
                 : 'text-stone-600 hover:text-stone-900'
             }`}
           >
-            <CalendarRange className="w-4 h-4 text-emerald-700" />
-            <span>週間予定</span>
+            <CalendarRange className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-700 shrink-0" />
+            <span className="text-[11px] sm:text-sm">週間予定</span>
           </button>
           <button
             onClick={() => setActiveSubTab('monthly')}
-            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap shrink-0 ${
+            className={`flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap ${
               activeSubTab === 'monthly'
                 ? 'bg-white text-emerald-950 shadow-xs border border-emerald-100'
                 : 'text-stone-600 hover:text-stone-900'
             }`}
           >
-            <Calendar className="w-4 h-4 text-emerald-700" />
-            <span>月間カレンダー</span>
+            <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-700 shrink-0" />
+            <span className="hidden sm:inline">月間カレンダー</span>
+            <span className="sm:hidden text-[11px]">月間予定</span>
           </button>
         </div>
 
@@ -357,60 +359,76 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
 
       {/* SUBTAB 1: その日の練習詳細 */}
       {activeSubTab === 'daily' && currentDailySchedule && (
-        <div className="space-y-6">
-          {/* Day Selector bar - School Color Deep Green */}
-          <div className="flex items-center justify-between bg-gradient-to-r from-emerald-950 via-emerald-900 to-stone-900 text-white p-4 rounded-2xl shadow-sm border border-emerald-800/50">
-            <div className="flex items-center gap-3">
+        <div className="space-y-4 sm:space-y-6">
+          {/* Day Selector bar - School Color Deep Green - Optimized for 6.1" Mobile Width */}
+          <div className="bg-gradient-to-r from-emerald-950 via-emerald-900 to-stone-900 text-white p-3 sm:p-4 rounded-2xl shadow-sm border border-emerald-800/50 space-y-2.5 sm:space-y-3">
+            {/* Row 1: Left [<] Button, Center [Single-Line Date + Today Badge], Right [>] Button */}
+            <div className="flex items-center justify-between gap-1.5 sm:gap-2">
+              {/* < (前日へ) at the FAR LEFT edge */}
               <button
                 onClick={() => handleDayStep(-1)}
-                className="p-2 rounded-xl bg-emerald-900/80 hover:bg-emerald-800 text-emerald-100 transition-colors border border-emerald-700/40"
-                title="前日へ"
+                className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-emerald-900/90 hover:bg-emerald-800 active:scale-95 text-emerald-100 flex items-center justify-center transition-all border border-emerald-700/50 shrink-0 shadow-xs"
+                title="前日へ移動"
+                aria-label="前日へ移動"
               >
-                <ChevronLeft className="w-5 h-5" />
+                <ChevronLeft className="w-4 h-4 sm:w-6 sm:h-6" />
               </button>
 
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xl sm:text-2xl font-black font-serif tracking-tight text-white">
-                    {currentDailySchedule.date} ({currentDailySchedule.dayOfWeek})
+              {/* Center: Date info without wrapping on mobile - Compact font sizes guaranteed to fit 390px */}
+              <div className="flex-1 text-center min-w-0 px-1">
+                <div className="flex items-center justify-center gap-1 sm:gap-2 flex-nowrap">
+                  <span className="text-sm xs:text-base sm:text-xl font-bold font-serif tracking-tight text-white whitespace-nowrap">
+                    {(() => {
+                      const parts = currentDailySchedule.date.split('-');
+                      if (parts.length === 3) {
+                        return `${parts[0]}年${Number(parts[1])}月${Number(parts[2])}日 (${currentDailySchedule.dayOfWeek})`;
+                      }
+                      return `${currentDailySchedule.date} (${currentDailySchedule.dayOfWeek})`;
+                    })()}
                   </span>
                   {currentDailySchedule.date === todayStr && (
-                    <span className="px-2 py-0.5 text-xs font-bold bg-emerald-500 text-white rounded-full shadow-2xs">
+                    <span className="px-1.5 py-0.2 text-[9px] sm:text-xs font-bold bg-emerald-500 text-white rounded-full shadow-2xs whitespace-nowrap shrink-0">
                       本日
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-emerald-200/80 mt-0.5">
+                <p className="text-[10px] sm:text-xs text-emerald-200/80 mt-0.5">
                   吹奏楽部 活動予定詳細
                 </p>
               </div>
-            </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => e.target.value && setSelectedDate(e.target.value)}
-                className="px-2.5 py-1.5 text-xs font-semibold bg-emerald-900/90 text-white border border-emerald-700 rounded-lg cursor-pointer focus:outline-none focus:ring-1 focus:ring-emerald-400"
-                title="日付を選択"
-              />
-              <button
-                onClick={() => setSelectedDate(todayStr)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${
-                  selectedDate === todayStr
-                    ? 'bg-emerald-600 text-white border-emerald-400'
-                    : 'bg-emerald-800 hover:bg-emerald-700 text-emerald-100 border-emerald-600/60'
-                }`}
-              >
-                今日
-              </button>
+              {/* > (翌日へ) at the FAR RIGHT edge */}
               <button
                 onClick={() => handleDayStep(1)}
-                className="p-2 rounded-xl bg-emerald-900/80 hover:bg-emerald-800 text-emerald-100 transition-colors border border-emerald-700/40"
-                title="翌日へ"
+                className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-emerald-900/90 hover:bg-emerald-800 active:scale-95 text-emerald-100 flex items-center justify-center transition-all border border-emerald-700/50 shrink-0 shadow-xs"
+                title="翌日へ移動"
+                aria-label="翌日へ移動"
               >
-                <ChevronRight className="w-5 h-5" />
+                <ChevronRight className="w-4 h-4 sm:w-6 sm:h-6" />
               </button>
+            </div>
+
+            {/* Row 2: Secondary Toolbar (今日へ戻るボタン ＆ 日付ピッカー) */}
+            <div className="flex items-center justify-center gap-2 pt-2 border-t border-emerald-800/40">
+              <button
+                onClick={() => setSelectedDate(todayStr)}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all flex items-center gap-1 shrink-0 ${
+                  selectedDate === todayStr
+                    ? 'bg-emerald-500 text-white border-emerald-400 shadow-xs'
+                    : 'bg-emerald-800/80 hover:bg-emerald-700 text-emerald-100 border-emerald-700/60'
+                }`}
+              >
+                <span>今日</span>
+              </button>
+              <div className="relative">
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => e.target.value && setSelectedDate(e.target.value)}
+                  className="px-2.5 py-1.5 text-xs font-semibold bg-emerald-950/80 text-white border border-emerald-700 rounded-lg cursor-pointer focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                  title="日付を直接選択"
+                />
+              </div>
             </div>
           </div>
 
