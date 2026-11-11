@@ -74,6 +74,8 @@ export interface LoadingItem {
   handler: string;
   cautions: string;
   loaded: boolean;
+  loadedOutbound?: boolean;
+  loadedInbound?: boolean;
 }
 
 export type ScoreGenre =

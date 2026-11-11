@@ -18,8 +18,10 @@ import {
   parseGoalsFromCSV,
   parseSchedulesFromCSV,
   parseAttendanceFromCSV,
+  parseLoadingItemsFromCSV,
   DEFAULT_SCHEDULE_SPREADSHEET_URL,
   DEFAULT_ATTENDANCE_SPREADSHEET_URL,
+  DEFAULT_TRUCK_SPREADSHEET_URL,
 } from './utils/spreadsheetSync';
 import { Header, MainTab } from './components/Header';
 import { BottomNav, BottomNavTab } from './components/BottomNav';
@@ -106,10 +108,24 @@ export default function App() {
     return INITIAL_ATTENDANCE;
   });
 
-  // Loading items state with localStorage
+  // Loading items state with localStorage (upgraded to v2 for DB_Truck schema)
   const [loadingItems, setLoadingItems] = useState<LoadingItem[]>(() => {
-    const saved = localStorage.getItem('gatabra_loading');
-    return saved ? JSON.parse(saved) : INITIAL_LOADING_ITEMS;
+    const saved =
+      localStorage.getItem('gatabra_loading_v2') || localStorage.getItem('gatabra_loading');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        // Only use saved if it's the 11-item DB_Truck format and doesn't contain old fictional items (load-17)
+        if (
+          Array.isArray(parsed) &&
+          parsed.length <= 15 &&
+          parsed.some((it: any) => it.instrumentName === 'ティンパニ' || it.instrumentName === 'バスドラ')
+        ) {
+          return parsed;
+        }
+      } catch (e) {}
+    }
+    return INITIAL_LOADING_ITEMS;
   });
 
   // Scores state with localStorage
@@ -130,7 +146,7 @@ export default function App() {
   }, [attendanceRecords]);
 
   useEffect(() => {
-    localStorage.setItem('gatabra_loading', JSON.stringify(loadingItems));
+    localStorage.setItem('gatabra_loading_v2', JSON.stringify(loadingItems));
   }, [loadingItems]);
 
   useEffect(() => {
@@ -140,6 +156,29 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('gatabra_yearly_goals', JSON.stringify(yearlyGoals));
   }, [yearlyGoals]);
+
+  // Truck spreadsheet URL state
+  const [truckSpreadsheetUrl, setTruckSpreadsheetUrl] = useState<string>(() => {
+    return localStorage.getItem('gatabra_truck_url') || DEFAULT_TRUCK_SPREADSHEET_URL;
+  });
+
+  const handleSaveTruckUrl = (newUrl: string) => {
+    setTruckSpreadsheetUrl(newUrl);
+    localStorage.setItem('gatabra_truck_url', newUrl);
+  };
+
+  // Truck auto-sync status tracking
+  const [truckSyncStatus, setTruckSyncStatus] = useState<{
+    isSyncing: boolean;
+    lastSyncedAt: string | null;
+    error: string | null;
+    count: number;
+  }>({
+    isSyncing: false,
+    lastSyncedAt: null,
+    error: null,
+    count: loadingItems.length,
+  });
 
   // Attendance auto-sync status tracking
   const [attendanceSyncStatus, setAttendanceSyncStatus] = useState<{
@@ -298,10 +337,63 @@ export default function App() {
     }
   }, []);
 
-  // Trigger auto-sync for both schedules and attendance when app opens & on return to tab
+  // Automatically load truck loading items from DB_Truck spreadsheet
+  const autoSyncTruck = useCallback(async (silent = false) => {
+    try {
+      setTruckSyncStatus((prev) => ({ ...prev, isSyncing: true, error: null }));
+      const targetUrl =
+        localStorage.getItem('gatabra_truck_url') || DEFAULT_TRUCK_SPREADSHEET_URL;
+      const csv = await fetchSpreadsheetCSV(targetUrl);
+      const parsed = parseLoadingItemsFromCSV(csv);
+      if (parsed.length > 0) {
+        setLoadingItems((prev) => {
+          // If we have existing checkmarks recorded locally on the phone, keep local check status unless spreadsheet marked true
+          return parsed.map((newItem) => {
+            const existing = prev.find((p) => p.instrumentName === newItem.instrumentName);
+            if (existing) {
+              return {
+                ...newItem,
+                loadedOutbound: newItem.loadedOutbound || existing.loadedOutbound || false,
+                loadedInbound: newItem.loadedInbound || existing.loadedInbound || false,
+                loaded: newItem.loaded || existing.loaded || false,
+              };
+            }
+            return newItem;
+          });
+        });
+        const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        setTruckSyncStatus({
+          isSyncing: false,
+          lastSyncedAt: timeStr,
+          error: null,
+          count: parsed.length,
+        });
+      } else {
+        if (!silent) {
+          setTruckSyncStatus((prev) => ({
+            ...prev,
+            isSyncing: false,
+            error: 'DB_Truckから有効な楽器データを読み取れませんでした',
+          }));
+        }
+      }
+    } catch (e: any) {
+      console.warn('App open truck sync error:', e);
+      if (!silent) {
+        setTruckSyncStatus((prev) => ({
+          ...prev,
+          isSyncing: false,
+          error: e.message || 'トラック積込リストの自動取得に失敗しました',
+        }));
+      }
+    }
+  }, []);
+
+  // Trigger auto-sync for schedules, attendance, and truck loading when app opens & on return to tab
   useEffect(() => {
     autoSyncSchedules(false);
     autoSyncAttendance(false);
+    autoSyncTruck(false);
 
     let lastCheck = Date.now();
     const handleRevisit = () => {
@@ -310,6 +402,7 @@ export default function App() {
         lastCheck = Date.now();
         autoSyncSchedules(true);
         autoSyncAttendance(true);
+        autoSyncTruck(true);
       }
     };
 
@@ -325,7 +418,7 @@ export default function App() {
       window.removeEventListener('focus', handleRevisit);
       document.removeEventListener('visibilitychange', handleVisChange);
     };
-  }, [autoSyncSchedules, autoSyncAttendance]);
+  }, [autoSyncSchedules, autoSyncAttendance, autoSyncTruck]);
 
   // Today's dynamic date & schedule
   const todayStr = getTodayStr();
@@ -394,6 +487,10 @@ export default function App() {
           <LoadingListView
             items={loadingItems}
             onUpdateItems={setLoadingItems}
+            syncStatus={truckSyncStatus}
+            onRefresh={() => autoSyncTruck(false)}
+            spreadsheetUrl={truckSpreadsheetUrl}
+            onSaveSpreadsheetUrl={handleSaveTruckUrl}
           />
         )}
 
