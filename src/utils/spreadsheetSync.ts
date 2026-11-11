@@ -356,6 +356,9 @@ export const DEFAULT_SCHEDULE_SPREADSHEET_URL =
 export const DEFAULT_ATTENDANCE_SPREADSHEET_URL =
   'https://docs.google.com/spreadsheets/d/1K8se6Rls9JsNKdNzLhEeeKaDYBjedWVZoGVpdNLKOdY/edit?gid=945596711#gid=945596711';
 
+export const DEFAULT_TRUCK_SPREADSHEET_URL =
+  'https://docs.google.com/spreadsheets/d/1K8se6Rls9JsNKdNzLhEeeKaDYBjedWVZoGVpdNLKOdY/edit?gid=358240052#gid=358240052';
+
 /**
  * Helper to parse multiline practice details into structured timeline items
  */
@@ -743,50 +746,151 @@ export function parseAttendanceFromCSV(csvText: string): AttendanceRecord[] {
 }
 
 /**
- * Parse Truck Loading items from CSV
+ * Parse Truck Loading items from CSV (supports DB_Truck schema & custom truck formats)
  */
 export function parseLoadingItemsFromCSV(csvText: string): LoadingItem[] {
-  const rows = parseCSV(csvText);
+  const rows = parseCSV(ensureCSVText(csvText));
   if (rows.length < 2) return [];
 
-  const headers = rows[0].map((h) => h.toLowerCase());
+  // Find header row (usually row 0 or within the first 5 rows)
+  let headerRowIdx = 0;
+  for (let r = 0; r < Math.min(5, rows.length); r++) {
+    const joined = rows[r].join(',').toLowerCase();
+    if (
+      joined.includes('順序') ||
+      joined.includes('楽器') ||
+      joined.includes('機材') ||
+      joined.includes('truck') ||
+      joined.includes('行き')
+    ) {
+      headerRowIdx = r;
+      break;
+    }
+  }
+
+  const rawHeaders = rows[headerRowIdx];
+  const headers = rawHeaders.map((h) => h.toLowerCase().trim().replace(/\s+/g, ''));
+
   const orderIdx = headers.findIndex((h) => h.includes('順') || h.includes('no') || h.includes('order'));
-  const truckIdx = headers.findIndex((h) => h.includes('号車') || h.includes('トラック') || h.includes('truck'));
-  const nameIdx = headers.findIndex((h) => h.includes('楽器') || h.includes('品名') || h.includes('instrument'));
+  const nameIdx = headers.findIndex((h) => h.includes('楽器') || h.includes('機材') || h.includes('品名') || h.includes('name'));
+  const notesIdx = headers.findIndex((h) => h.includes('備考') || h.includes('注意') || h.includes('養生') || h.includes('notes'));
+  const outboundIdx = headers.findIndex((h) => h.includes('行き') || h.includes('往路') || h.includes('outbound'));
+  const inboundIdx = headers.findIndex((h) => h.includes('帰り') || h.includes('復路') || h.includes('inbound'));
+
+  // Optional legacy / additional headers
+  const truckIdx = headers.findIndex((h) => h.includes('号車') || h.includes('トラック'));
   const partIdx = headers.findIndex((h) => h.includes('パート') || h.includes('担当パート'));
   const qtyIdx = headers.findIndex((h) => h.includes('数量') || h.includes('数') || h.includes('台'));
-  const caseIdx = headers.findIndex((h) => h.includes('ケース') || h.includes('種別'));
-  const locIdx = headers.findIndex((h) => h.includes('位置') || h.includes('場所') || h.includes('段'));
+  const caseIdx = headers.findIndex((h) => h.includes('ケース'));
+  const locIdx = headers.findIndex((h) => h.includes('位置') || h.includes('場所'));
   const handlerIdx = headers.findIndex((h) => h.includes('担当者') || h.includes('係'));
-  const cautionIdx = headers.findIndex((h) => h.includes('注意') || h.includes('備考') || h.includes('養生'));
 
   const items: LoadingItem[] = [];
 
-  for (let i = 1; i < rows.length; i++) {
+  for (let i = headerRowIdx + 1; i < rows.length; i++) {
     const row = rows[i];
-    if (row.length === 0 || !row[nameIdx >= 0 ? nameIdx : 1]) continue;
+    if (row.length === 0 || row.every((c) => !c.trim())) continue;
 
-    const rawTruck = truckIdx >= 0 ? row[truckIdx] : '';
+    const rawName = (nameIdx >= 0 ? row[nameIdx] : row[1])?.trim();
+    if (!rawName) continue;
+
+    // Convert full-width numbers (１, ２, ..., １１) to half-width integer
+    const rawOrder = orderIdx >= 0 && row[orderIdx] ? row[orderIdx].trim() : String(items.length + 1);
+    const normalizedOrderStr = rawOrder.replace(/[０-９]/g, (ch) =>
+      String.fromCharCode(ch.charCodeAt(0) - 0xfee0)
+    );
+    const orderNum = parseInt(normalizedOrderStr, 10) || items.length + 1;
+
+    // Outbound / Inbound checks
+    const rawOutbound = (outboundIdx >= 0 ? row[outboundIdx] : '').trim().toUpperCase();
+    const loadedOutbound = rawOutbound === 'TRUE' || rawOutbound === '1' || rawOutbound === '○';
+
+    const rawInbound = (inboundIdx >= 0 ? row[inboundIdx] : '').trim().toUpperCase();
+    const loadedInbound = rawInbound === 'TRUE' || rawInbound === '1' || rawInbound === '○';
+
+    const cautions = (notesIdx >= 0 ? row[notesIdx] : '').trim();
+
+    // Determine part & category based on instrument name
+    let part = '全体';
+    let category: LoadingItem['category'] = 'equipment';
+    let defaultLocation = 'トラック荷台';
+    let defaultCase = '専用ケース';
+
+    if (/ティンパニ|バスドラ|スネア|グロッケン|マリンバ|シロフォン|シンバル|ドラム|チャイム|打楽器/.test(rawName)) {
+      part = 'Percussion';
+      category = /ティンパニ|バスドラ|マリンバ/.test(rawName) ? 'percussion_large' : 'percussion_small';
+      defaultLocation = /ティンパニ|バスドラ/.test(rawName) ? '1号車 奥・下段' : '1号車 中段';
+      defaultCase = /ティンパニ|バスドラ/.test(rawName) ? '専用ケース＋毛布' : '専用ケース';
+    } else if (/トランペット/.test(rawName)) {
+      part = 'Trumpet';
+      category = 'brass_heavy';
+      defaultLocation = '1号車 中段';
+      defaultCase = 'ハードケース';
+    } else if (/トロンボーン/.test(rawName)) {
+      part = 'Trombone';
+      category = 'brass_heavy';
+      defaultLocation = '1号車 中段';
+      defaultCase = 'ハードケース';
+    } else if (/ホルン/.test(rawName)) {
+      part = 'Horn';
+      category = 'brass_heavy';
+      defaultLocation = '1号車 中段';
+      defaultCase = 'ハードケース';
+    } else if (/チューバ|ユーフォ/.test(rawName)) {
+      part = /チューバ/.test(rawName) ? 'Tuba' : 'Euphonium';
+      category = 'brass_heavy';
+      defaultLocation = '1号車 下段';
+      defaultCase = 'ハードケース';
+    } else if (/フルート|ピッコロ/.test(rawName)) {
+      part = 'Flute';
+      category = 'woodwind';
+      defaultLocation = '1号車 上段';
+      defaultCase = 'ハードケース';
+    } else if (/クラリネット/.test(rawName)) {
+      part = 'Clarinet';
+      category = 'woodwind';
+      defaultLocation = '1号車 上段';
+      defaultCase = 'ハードケース';
+    } else if (/サックス/.test(rawName)) {
+      part = 'Saxophone';
+      category = 'woodwind';
+      defaultLocation = '1号車 中段';
+      defaultCase = 'ハードケース';
+    }
+
+    if (partIdx >= 0 && row[partIdx]?.trim()) {
+      part = row[partIdx].trim();
+    }
+
+    const rawTruck = truckIdx >= 0 && row[truckIdx] ? row[truckIdx].trim() : '';
     const truckId: LoadingItem['truckId'] = rawTruck.includes('2') ? 'truck-2' : 'truck-1';
 
+    const qty = qtyIdx >= 0 && Number(row[qtyIdx]) ? Number(row[qtyIdx]) : 1;
+    const caseType = caseIdx >= 0 && row[caseIdx]?.trim() ? row[caseIdx].trim() : defaultCase;
+    const locationInTruck = locIdx >= 0 && row[locIdx]?.trim() ? row[locIdx].trim() : defaultLocation;
+    const handler = handlerIdx >= 0 && row[handlerIdx]?.trim() ? row[handlerIdx].trim() : part;
+
     items.push({
-      id: `csv-load-${Date.now()}-${i}`,
-      order: orderIdx >= 0 && Number(row[orderIdx]) ? Number(row[orderIdx]) : i,
+      id: `truck-${orderNum}-${rawName.replace(/\s+/g, '')}`,
+      order: orderNum,
       truckId,
-      instrumentName: nameIdx >= 0 ? row[nameIdx] : '機材',
-      category: 'equipment',
-      part: partIdx >= 0 && row[partIdx] ? row[partIdx] : '全体',
-      quantity: qtyIdx >= 0 && Number(row[qtyIdx]) ? Number(row[qtyIdx]) : 1,
-      caseType: caseIdx >= 0 && row[caseIdx] ? row[caseIdx] : '専用ケース',
-      locationInTruck: locIdx >= 0 && row[locIdx] ? row[locIdx] : '下段',
-      handler: handlerIdx >= 0 && row[handlerIdx] ? row[handlerIdx] : '担当係',
-      cautions: cautionIdx >= 0 && row[cautionIdx] ? row[cautionIdx] : '',
-      loaded: false,
+      instrumentName: rawName,
+      category,
+      part,
+      quantity: qty,
+      caseType,
+      locationInTruck,
+      handler,
+      cautions,
+      loaded: loadedOutbound,
+      loadedOutbound,
+      loadedInbound,
     });
   }
 
-  return items;
+  return items.sort((a, b) => a.order - b.order);
 }
+
 
 /**
  * Parse Music Scores from CSV
